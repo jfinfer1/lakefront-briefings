@@ -44,10 +44,19 @@ def parse(raw):
     sec = raw.split("BY REGION AND COUNTRY OF DESTINATION", 1)
     if len(sec) < 2: fail("country-of-destination table not found")
     body = sec[1]
-    row_re = re.compile(r"^\s*(?:(ATLANTIC|GULF|PACIFIC|INTERIOR|ST LAWR SWY|LAKES)\s+)?([A-Z][A-Z .'&-]*?)\s{2,}([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s*$", re.M)
+    # Column set varies week to week (USDA drops all-zero columns such as BARLEY),
+    # so read the column names from the table header instead of assuming positions.
+    hm = re.search(r"^\s*REGION\s+COUNTRY\s+(.+?)\s*$", body, re.M)
+    if not hm: fail("country table header not found")
+    names = hm.group(1).split()
+    if not names or names[-1] != "TOTALS": fail(f"unexpected country table header: {names}")
+    ncol = len(names)
+    for need in ("WHEAT", "YELLOW", "WHITE", "SOYBEANS"):
+        if need not in names: fail(f"country table missing column {need}: {names}")
+    row_re = re.compile(r"^\s*(?:(ATLANTIC|GULF|PACIFIC|INTERIOR|ST LAWR SWY|LAKES)\s+)?([A-Z][A-Z .'&-]*?)\s{2,}" + r"\s+".join([r"([\d,]+)"]*ncol) + r"\s*$", re.M)
     dest = {g: {} for g in GRAINS}
-    region_sum = [0]*8
-    subtotal_sum = [0]*8
+    region_sum = [0]*ncol
+    subtotal_sum = [0]*ncol
     grand = None
     for mm in row_re.finditer(body):
         name = mm.group(2).strip()
@@ -55,18 +64,19 @@ def parse(raw):
         if name == "SUBTOTAL":
             if vals != region_sum: fail(f"region subtotal mismatch: rows {region_sum} vs subtotal {vals}")
             subtotal_sum = [a+b for a, b in zip(subtotal_sum, vals)]
-            region_sum = [0]*8
+            region_sum = [0]*ncol
             continue
         if name == "TOTAL":
             grand = vals; break
         region_sum = [a+b for a, b in zip(region_sum, vals)]
-        wheat, cy, cw, barley, sorg, soy, canola, tot = vals
-        if wheat+cy+cw+barley+sorg+soy+canola != tot: fail(f"row total mismatch for {name}")
-        for g, v in (("WHEAT", wheat), ("CORN", cy+cw), ("SOYBEANS", soy)):
+        col = dict(zip(names, vals))
+        if sum(vals[:-1]) != vals[-1]: fail(f"row total mismatch for {name}")
+        for g, v in (("WHEAT", col["WHEAT"]), ("CORN", col["YELLOW"]+col["WHITE"]), ("SOYBEANS", col["SOYBEANS"])):
             if v: dest[g][name] = dest[g].get(name, 0) + v
     if grand is None: fail("country table TOTAL row not found")
     if grand != subtotal_sum: fail("grand total does not equal sum of region subtotals")
-    checks = {"WHEAT": grand[0], "CORN": grand[1]+grand[2], "SOYBEANS": grand[5]}
+    gcol = dict(zip(names, grand))
+    checks = {"WHEAT": gcol["WHEAT"], "CORN": gcol["YELLOW"]+gcol["WHITE"], "SOYBEANS": gcol["SOYBEANS"]}
     for g in GRAINS:
         if checks[g] != summary[g]["week"]:
             fail(f"{g}: destination table total {checks[g]:,} != summary {summary[g]['week']:,}")
