@@ -72,7 +72,7 @@ def main(data_path, out):
         if n[0] != len(ORDER): fail(f"{crop} map has {n[0]} state paths, expected {len(ORDER)}")
     t = "".join(parts)
     # harvest bars (corn block first, soybeans second)
-    blocks = list(re.finditer(r'<div class="ge">.*?</div>\s*</div>', t, re.S))
+    blocks = list(re.finditer(r'<div class="ge">.*?<div class="ge-sub">.*?</div>\s*</div>', t, re.S))
     if len(blocks) != 2: fail("expected two harvest bars")
     for crop, m in reversed(list(zip(("corn", "soybeans"), blocks))):
         c = d[crop]; b = m.group(0)
