@@ -37,8 +37,12 @@ def main(tp, hp, out, want=None):
     if os.path.exists(hp):
         for r in csv.DictReader(open(hp)): hist[r["week_ending"]] = r
     for w, c, h, k in [(wy, cy, hy, "actual"), (w1, c1, h1, "est"), (w0, c0, h0, "est")]:
-        if hist.get(str(w), {}).get("kind") == "actual" and k == "est": continue
-        hist[str(w)] = {"week_ending": str(w), "cattle": c, "hogs": h, "kind": k}
+        r = hist.setdefault(str(w), {"week_ending": str(w), "cattle": "", "hogs": "", "kind": k})
+        if r.get("kind") == "actual" and r.get("cattle") and r.get("hogs"):
+            continue   # keep exact actuals (e.g. from Hightower's history table)
+        for sp, v in (("cattle", c), ("hogs", h)):
+            if not (r.get("kind") == "actual" and r.get(sp)): r[sp] = v
+        if r.get("kind") != "actual": r["kind"] = k
     with open(hp, "w", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=["week_ending", "cattle", "hogs", "kind"]); wr.writeheader()
         for k in sorted(hist): wr.writerow(hist[k])
@@ -49,8 +53,9 @@ def main(tp, hp, out, want=None):
     weeks = [w0 - datetime.timedelta(7 * i) for i in range(9, -1, -1)]
     chart = {}
     for sp in ("cattle", "hogs"):
-        ty = [int(H[w][sp]) if w in H else None for w in weeks]
-        ly = [int(near(w - datetime.timedelta(364))[sp]) if near(w - datetime.timedelta(364)) else None for w in weeks]
+        g = lambda r: int(r[sp]) if r and r.get(sp) else None
+        ty = [g(H.get(w)) for w in weeks]
+        ly = [g(near(w - datetime.timedelta(364))) for w in weeks]
         keep = [i for i in range(10) if ty[i] is not None and ly[i] is not None]
         chart[sp] = {"labels": [f"{weeks[i].month}/{weeks[i].day}" for i in keep],
                      "this_year": [ty[i] for i in keep], "last_year": [ly[i] for i in keep]}
