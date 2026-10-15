@@ -40,22 +40,39 @@ def main(jp, xp, out):
         if (net >= 0 and ch >= net) or (net < 0 and ch <= net):
             largest_since = str(d); break
 
-    # chart series by ISO week: this year, last year, 5yr avg/min/max (prior 5 calendar years)
+    # chart series aligned by calendar date (how EIA builds its 5yr average):
+    # x points = this year's report dates, extended through year end in 7 day steps;
+    # prior years are linearly interpolated at the same month/day.
     yr = hist[-1][0].year
-    by = {}
-    for d, v in hist:
-        by.setdefault(d.year, {})[d.isocalendar()[1]] = v
-    weeks = range(1, 53)
+    ords = [(d, v) for d, v in hist]
+    def at(y, md):
+        try: t = datetime.date(y, *md)
+        except ValueError: t = datetime.date(y, md[0], 28)
+        for (d0, v0), (d1, v1) in zip(ords, ords[1:]):
+            if d0 <= t <= d1:
+                return v0 + (v1 - v0) * (t - d0).days / (d1 - d0).days
+        return None
+    dates = [d for d, _ in hist if d.year == yr]
+    while dates[-1].year == yr and dates[-1] + datetime.timedelta(7) <= datetime.date(yr, 12, 31):
+        dates.append(dates[-1] + datetime.timedelta(7))
+    first = dates[0]
+    while first - datetime.timedelta(7) >= datetime.date(yr, 1, 1):
+        first -= datetime.timedelta(7); dates.insert(0, first)
+    cur_map = dict(hist)
     five = [yr - k for k in range(1, 6)]
-    series = {"weeks": list(weeks),
-              "this_year": [by.get(yr, {}).get(w) for w in weeks],
-              "last_year": [by.get(yr - 1, {}).get(w) for w in weeks]}
-    avg, lo, hi = [], [], []
-    for w in weeks:
-        vals = [by[y][w] for y in five if w in by.get(y, {})]
-        avg.append(round(sum(vals) / len(vals)) if vals else None)
-        lo.append(min(vals) if vals else None); hi.append(max(vals) if vals else None)
-    series.update(avg5=avg, min5=lo, max5=hi, five_years=f"{five[-1]}-{five[0]}")
+    series = {"dates": [str(d) for d in dates], "five_years": f"{five[-1]}-{five[0]}",
+              "this_year": [cur_map.get(d) for d in dates], "last_year": [], "avg5": [], "min5": [], "max5": []}
+    for dt in dates:
+        md = (dt.month, dt.day)
+        ly = at(yr - 1, md); series["last_year"].append(round(ly) if ly is not None else None)
+        vals = [x for x in (at(y, md) for y in five) if x is not None]
+        ok = len(vals) == 5
+        series["avg5"].append(round(sum(vals) / 5) if ok else None)
+        series["min5"].append(round(min(vals)) if ok else None)
+        series["max5"].append(round(max(vals)) if ok else None)
+    i = series["dates"].index(week)
+    if abs(series["avg5"][i] - avg5) > 3:
+        fail(f"computed 5yr avg {series['avg5'][i]} vs EIA {avg5}")
 
     regions = []
     for s in j["series"]:
