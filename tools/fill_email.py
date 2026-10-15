@@ -11,9 +11,9 @@ numbers_html = '<p style="margin:0;">' + "<br>".join(html.escape(n) for n in num
 analysis_html = '<p style="margin:0;"><br></p>'.join(f'<p style="margin:0;">{html.escape(p)}</p>' for p in paras)
 t = open(os.path.join(here, "email_template.html"), encoding="utf-8").read()
 if not nums:
-    head = '<div style="padding:10px 0;">{{NUMBERS}}</div> <p style="margin:0;"><strong><span style="color:#1f2a5e;font-size:18px;">Analysis</span></strong></p> '
-    assert head in t, "template changed"
-    t = t.replace(head, '<div style="padding:5px 0;"></div> ')
+    import re
+    t, n = re.subn(r'<div style="padding:10px 0;">\{\{NUMBERS\}\}</div>\s*<p style="margin:0;"><strong><span[^>]*>Analysis</span></strong></p>', '', t)
+    assert n == 1, "template changed"
 t = t.replace("{{TITLE}}", html.escape(title)).replace("{{NUMBERS}}", numbers_html) \
      .replace("{{ANALYSIS}}", analysis_html).replace("{{IMAGE_URL}}", image_url)
 open(out, "w", encoding="utf-8").write(t)
