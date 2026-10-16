@@ -72,6 +72,11 @@ def main(pdf, year, out):
                 e["other"].append(t); cont = t.endswith("/"); continue
             if t.isupper() and not TIME.match(t):
                 e["holidays"].append(t); continue
+            mm = re.match(r"^(.*?\S)\s+(\d{1,2}:\d{2})\s+(\S.*)$", t)   # two reports run together on one line
+            if mm:
+                e["reports"].append({"name": mm.group(1), "time": mm.group(2)}); t = mm.group(3)
+                if TIME.match(t) is None and not t.isupper():
+                    e["reports"].append({"name": t, "time": None}); continue
             m = TIME.match(t)
             e["reports"].append({"name": m.group(1), "time": m.group(2)} if m else {"name": t, "time": None})
         # join wrapped holiday names
