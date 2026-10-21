@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:Fraunces;font-weight:800;src:url(fonts/fraunces-latin-800-normal.woff2)}
+@font-face{font-family:Barlow Condensed;font-weight:700;src:url(fonts/barlow-condensed-latin-700-normal.woff2)}
+@font-face{font-family:DM Sans;font-weight:400;src:url(fonts/dm-sans-latin-400-normal.woff2)}
+@font-face{font-family:DM Sans;font-weight:500;src:url(fonts/dm-sans-latin-500-normal.woff2)}
+/* Brand rule: Lakefront navy and white only */
+:root{--navy:#1E2264;--white:#FFFFFF;--soft:rgba(30,34,100,.72);--faint:rgba(30,34,100,.14)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:2400px;height:1350px;background:var(--white)}
+.frame{position:relative;width:2400px;height:1350px;padding:110px 140px 0;display:grid;grid-template-columns:1040px 1fr;column-gap:110px;grid-template-rows:auto 1fr}
+.top{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;height:120px}
+.top .lf{height:120px}
+.top .ai{height:100px}
+.left{display:flex;flex-direction:column;justify-content:center;padding-bottom:170px}
+.series{font:700 46px/1 "Barlow Condensed";letter-spacing:.16em;color:var(--navy);text-transform:uppercase}
+h1{margin-top:44px;font:800 118px/1.02 Fraunces;color:var(--navy);letter-spacing:-.01em}
+.lede{margin-top:48px;font:400 46px/1.42 "DM Sans";color:var(--soft);max-width:960px}
+.right{display:flex;align-items:center;padding-bottom:170px}
+.card{width:100%;background:var(--navy);border-radius:28px;padding:64px 70px;color:var(--white)}
+.card h3{font:700 38px/1 "Barlow Condensed";letter-spacing:.14em;text-transform:uppercase;color:var(--white);opacity:.8;margin-bottom:34px}
+.pts{list-style:none;display:flex;flex-direction:column;gap:34px}
+.pts li{display:grid;grid-template-columns:76px 1fr;align-items:start;font:500 42px/1.32 "DM Sans"}
+.pts b{font:800 54px/1 Fraunces}
+.note{margin-top:30px;font:400 34px/1.35 "DM Sans";color:var(--white);opacity:.85}
+.foot{position:absolute;left:140px;right:140px;bottom:0;height:130px;display:flex;align-items:center;justify-content:space-between;font:400 28px/1.4 "DM Sans";color:var(--soft)}
+.foot strong{font:700 34px/1 "Barlow Condensed";letter-spacing:.1em;color:var(--navy);text-transform:uppercase}
+svg text{font-family:"DM Sans"}
+.myth{width:100%;display:flex;flex-direction:column;gap:30px}
+.myth .m,.myth .f{border-radius:24px;padding:46px 54px}
+.myth .m{background:var(--white);border:4px solid var(--navy);color:var(--navy)}
+.myth .f{background:var(--navy);color:var(--white)}
+.myth .tag{font:700 42px/1 "Barlow Condensed";letter-spacing:.16em;margin-bottom:20px}
+.myth p{font:500 46px/1.3 "DM Sans"}
+.myth .m p{text-decoration:line-through;text-decoration-thickness:4px;opacity:.75}
+.tilewrap{width:100%}
+.tilewrap h3{font:700 38px/1 "Barlow Condensed";letter-spacing:.14em;text-transform:uppercase;color:var(--navy);margin-bottom:30px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.tiles div{background:var(--navy);color:var(--white);border-radius:18px;padding:36px 40px;font:700 48px/1 "Barlow Condensed";letter-spacing:.08em;text-transform:uppercase}
+.tilewrap .note{color:var(--soft);opacity:1}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="top">
+    <img class="lf" src="lakefront_logo.jpg">
+    <img class="ai" id="ai" src="aisource_logo.png" style="display:none">
+  </div>
+  <div class="left">
+    <div class="series" id="series"></div>
+    <h1 id="title"></h1>
+    <p class="lede" id="lede"></p>
+  </div>
+  <div class="right" id="right"></div>
+  <div class="foot">
+    <strong>Futures Education</strong>
+    <span>lakefrontfutures.com · Futures trading involves substantial risk of loss</span>
+  </div>
+</div>
+<script>
+const P = window.POST;
+if (P.aisource) document.getElementById('ai').style.display = 'block';
+document.getElementById('series').textContent = P.series;
+document.getElementById('title').textContent = P.title;
+document.getElementById('lede').textContent = P.lede;
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const V = {
+  points: p => `<div class="card"><h3>${esc(p.cardTitle||'Key takeaways')}</h3><ul class="pts">${p.points.map((t,i)=>`<li><b>${i+1}</b><span>${esc(t)}</span></li>`).join('')}</ul></div>`,
+  myth: p => `<div class="myth"><div class="m"><div class="tag">MYTH</div><p>${esc(p.myth)}</p></div><div class="f"><div class="tag">FACT</div><p>${esc(p.fact)}</p></div></div>`,
+  tiles: p => `<div class="tilewrap"><h3>${esc(p.cardTitle)}</h3><div class="tiles">${p.tiles.map(t=>`<div>${esc(t)}</div>`).join('')}</div>${p.note?`<p class="note">${esc(p.note)}</p>`:''}</div>`,
+  basis: p => `<div class="card"><h3>Futures vs local cash bid</h3>
+  <svg viewBox="0 0 900 520" width="100%">
+    <line x1="60" y1="460" x2="880" y2="460" stroke="rgba(255,255,255,.45)" stroke-width="3"/>
+    <text x="60" y="505" font-size="30" fill="rgba(255,255,255,.8)">Summer</text>
+    <text x="880" y="505" font-size="30" fill="rgba(255,255,255,.8)" text-anchor="end">Harvest</text>
+    <path d="M60 130 C 260 150, 420 120, 560 160 S 800 175, 880 170" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+    <path d="M60 200 C 260 225, 420 215, 560 285 S 800 380, 880 395" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="2 22"/>
+    <path d="M820 172 L820 388" stroke="rgba(255,255,255,.6)" stroke-width="4"/>
+    <path d="M806 186 L820 172 L834 186 M806 374 L820 388 L834 374" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="4"/>
+    <text x="795" y="290" font-size="34" font-weight="500" fill="#fff" text-anchor="end">Basis widens</text>
+    <line x1="80" y1="60" x2="130" y2="60" stroke="#fff" stroke-width="10" stroke-linecap="round"/><text x="150" y="71" font-size="32" fill="#fff">Futures</text>
+    <line x1="350" y1="60" x2="400" y2="60" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="2 22"/><text x="420" y="71" font-size="32" fill="#fff">Cash bid</text>
+  </svg>
+  <p class="note">Illustration only. A futures hedge covers price risk, not basis risk.</p></div>`
+};
+document.getElementById('right').innerHTML = V[P.visual](P);
+</script>
+</body>
+</html>
