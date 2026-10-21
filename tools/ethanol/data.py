@@ -42,8 +42,8 @@ def main(pdf, p01, out, want):
     # narrative sits in the left column of the layout text
     left = re.sub(r"\s+", " ", " ".join(l[:45] for l in txt.splitlines()[:60]))
     left = left.replace("5- year", "5-year")
-    m = re.search(r"averaged ([\d.]+) million barrels\. This was (up|down) ([\d.]+)% from last week and (up|down) ([\d.]+)% from last year\. The 5-year average for this week is ([\d.]+)", left)
-    m2 = re.search(r"Ethanol stocks were ([\d.]+) million barrels\. This was (up|down) ([\d.]+)% from last week and (up|down) ([\d.]+)% from last year\. The 5-year average stocks for this week is ([\d.]+)", left)
+    m = re.search(r"averaged ([\d.]+) million barrels\.(?: (?:[^.]|\.\d)+?\.){0,2}? This was (up|down) ([\d.]+)% from last week and (up|down) ([\d.]+)% from last year\. The 5-year average for this week is ([\d.]+)", left)
+    m2 = re.search(r"Ethanol stocks were ([\d.]+) million barrels\.(?: (?:[^.]|\.\d)+?\.){0,2}? This was (up|down) ([\d.]+)% from last week and (up|down) ([\d.]+)% from last year\. The 5-year average stocks for this week is ([\d.]+)", left)
     if not (m and m2): fail("could not parse Hightower narrative")
     if abs(float(m.group(1)) - daily) > 0.0005 or abs(float(m2.group(1)) - r["stocks"]) > 0.0005: fail("narrative vs table")
     sgn = lambda dirn, v: float(v) if dirn == "up" else -float(v)
