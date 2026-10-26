@@ -62,7 +62,7 @@ def main(pdf, year, out):
                 if d is None: continue
                 key = f"{year}-{month:02d}-{d:02d}"
                 e = cal.setdefault(key, {"holidays": [], "reports": [], "other": []})
-                t = ln["text"].strip()
+                t = re.sub(r"(ffi|ffl|ff|fi|fl) (?=[a-z])", r"\1", ln["text"].strip())   # PDF ligatures split words ("Confi dence")
                 if t.startswith("ALL REPORT TIMES") or t in ("CENTRAL",) or t.startswith(("FN: First", "LT: Last", "LTO: Last")): continue
                 e.setdefault("_lines", []).append(t)
     for k, e in cal.items():

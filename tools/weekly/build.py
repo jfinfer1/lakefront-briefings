@@ -74,6 +74,8 @@ def main(cp, monday, out):
                     f"{base64.b64encode(open(os.path.join(HERE, f'dm-sans-latin-{w}-normal.woff2'), 'rb').read()).decode()}) format('woff2')}}"
                     for w in (400, 500, 600, 700))
     t = re.sub(r'<link href="https://fonts.googleapis.com[^>]*>', "", t).replace("<style>", "<style>" + fonts, 1)
+    t = t.replace("</style>", ".report-name{word-break:normal!important;overflow-wrap:normal!important;hyphens:none!important;min-width:0}"
+                  ".report-item{min-width:0}</style>", 1)
     os.makedirs(out, exist_ok=True); hp = os.path.join(out, "chart.html"); open(hp, "w", encoding="utf-8").write(t)
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
