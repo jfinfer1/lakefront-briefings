@@ -16,10 +16,12 @@ COVERED = ["Export Inspections", "Crop Progress", "EIA Energy Stocks", "Ethanol 
            "EIA Short Term Energy Outlook", "Fats & Oils", "Grain Crushings", "Cattle", "Hogs & Pigs", "Hogs and Pigs",
            "Grain Stocks", "Planted Acreage", "Prospective Plantings", "Winter Wheat Seedings", "Small Grains Summary",
            "US Trade Balance"]
-US_HOLIDAYS = {"NEW YEAR": "New Year's Day", "MARTIN LUTHER KING": "MLK Day", "PRESIDENTS": "Presidents Day",
-               "GOOD FRIDAY": "Good Friday", "MEMORIAL DAY": "Memorial Day", "JUNETEENTH": "Juneteenth",
-               "INDEPENDENCE DAY": "Independence Day", "LABOR DAY": "Labor Day", "COLUMBUS DAY": "Columbus Day",
-               "VETERANS DAY": "Veterans Day", "THANKSGIVING DAY": "Thanksgiving", "CHRISTMAS": "Christmas"}
+# Regexes on the calendar's merged holiday line (it mixes US and foreign holidays, eves and observances).
+US_HOLIDAYS = [(r"NEW YEAR[’']S DAY", "New Year's Day"), (r"MARTIN LUTHER KING", "MLK Day"), (r"PRESIDENTS", "Presidents Day"),
+               (r"GOOD FRIDAY", "Good Friday"), (r"(?<!CONSTITUTION )MEMORIAL DAY", "Memorial Day"), (r"JUNETEENTH", "Juneteenth"),
+               (r"INDEPENDENCE DAY", "Independence Day"), (r"(?<!/)LABOR DAY(?! \()", "Labor Day"), (r"COLUMBUS DAY", "Columbus Day"),
+               (r"VETERANS DAY", "Veterans Day"), (r"(?<!LABOR )THANKSGIVING(?! \(CANADA\))(?! DAY OBSERVED \(JAPAN\))", "Thanksgiving"),
+               (r"CHRISTMAS(?! EVE)", "Christmas")]
 CLOSED = {"New Year's Day", "MLK Day", "Presidents Day", "Good Friday", "Memorial Day", "Juneteenth",
           "Independence Day", "Labor Day", "Thanksgiving", "Christmas"}
 DAYN = ["Mon", "Tue", "Wed", "Thu", "Fri"]; DAYL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -31,8 +33,8 @@ def minutes(t):
 
 def us_holiday(hs):
     s = " ".join(hs).upper()
-    for k, v in US_HOLIDAYS.items():
-        if k in s and not (k == "THANKSGIVING DAY" and "CANADA" in s and "THANKSGIVING DAY" not in s): return v
+    for pat, v in US_HOLIDAYS:
+        if re.search(pat, s): return v
     return None
 
 def main(cp, monday, out):
@@ -40,9 +42,10 @@ def main(cp, monday, out):
     days = []
     for i in range(5):
         d = mon + datetime.timedelta(i); e = cal.get(str(d), {"holidays": [], "reports": []})
+        if str(d) not in cal and (d.month, d.day) == (1, 1): e = {"holidays": ["NEW YEAR’S DAY"], "reports": []}  # next year's calendar not loaded yet
         hol = us_holiday(e.get("holidays", []))
         reps = [r for r in e["reports"] if r["time"] or r["name"] in ("EIA Short Term Energy Outlook",)]
-        reps = [{"name": "Commitment of Traders" if r["name"].lower().startswith("commitment") else r["name"], "time": r["time"]} for r in reps]
+        reps = [{"name": "Commitment of Traders" if r["name"].lower().startswith("commitment") else r["name"].rstrip("^* "), "time": r["time"]} for r in reps]
         if any(r["name"] == "EIA Energy Stocks" for r in reps) and not any(r["name"].startswith("Ethanol") for r in reps):
             t = next(r["time"] for r in reps if r["name"] == "EIA Energy Stocks"); reps.append({"name": "Ethanol Report", "time": t})
         if i == 4 and hol not in CLOSED:
@@ -90,9 +93,11 @@ def main(cp, monday, out):
     for i, x in enumerate(days):
         ns = [r["name"] for r in x["reports"] if r["name"] not in WEEKLY and r["name"] in COVERED]
         if ns: hits.append((" and ".join(ns) if len(ns) < 3 else ", ".join(ns[:-1]) + " and " + ns[-1]) + " " + DAYL[i])
-    hol = [f'{x["holiday"]} {DAYL[i]}' for i, x in enumerate(days) if x["holiday"]]
+    closed = [f'{DAYL[i]} for {x["holiday"]}' for i, x in enumerate(days) if x["holiday"] in CLOSED]
+    other = [f'{x["holiday"]} {DAYL[i]}' for i, x in enumerate(days) if x["holiday"] and x["holiday"] not in CLOSED]
     line = ", ".join(hits) + "." if hits else ""
-    if hol: line = (line + " " if line else "") + "Markets observe " + ", ".join(hol) + "."
+    if closed: line = (line + " " if line else "") + "Markets closed " + ", ".join(closed) + "."
+    if other: line = (line + " " if line else "") + ", ".join(other) + "."
     social = f"📊 Reports Coming Out This Week ({rng2})\n\n" + (line + "\n\n" if line else "") + "Stay informed by subscribing to lakefrontfutures.com/briefing/\n"
     open(os.path.join(out, "social.txt"), "w").write(social)
     json.dump(days, open(os.path.join(out, "week.json"), "w"), indent=1)
