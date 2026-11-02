@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """USDA Fats & Oils chart (1200x675 @2x): KPI cards + 12 month crush bars and soyoil stock lines vs a year ago.
 Usage: python3 chart.py DATA_JSON HISTORY_CSV OUT_DIR -> chart.html, chart.png
-HISTORY_CSV: month (YYYY-MM), crush_mbu, soyoil_blbs (private repo state/fats-oils/history.csv; data.py updates it)."""
+HISTORY_CSV: month (YYYY-MM), crush_mbu, soyoil_blbs (private repo state/fats-oils/history.csv; history.py updates it)."""
 import base64, csv, datetime, html, json, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 NAVY, LIGHT, UP, DOWN = "#242a68", "#b9bfd9", "#1a7a4a", "#c0392b"
