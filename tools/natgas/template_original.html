@@ -360,7 +360,9 @@ function smoothPath(pts) {
   el.appendChild(wt);
 
   // Bcf label next to dot
-  const lx = dx + 10, ly = dy;
+  // label sits below the 5 yr line, clear of all three curves, with a thin leader to the dot
+  const lx = dx + 14, ly = dy + 48;
+  el.appendChild(el2('line', { x1: dx + 3, y1: dy + 5, x2: lx + 4, y2: ly - 13, stroke: '#1A1D5E', 'stroke-width': '1.5' }));
   el.appendChild(el2('rect', { x: lx - 2, y: ly - 13, width: 84, height: 18, fill: 'white', rx: '3', opacity: '1' }));
   const lt = el2('text', { x: lx + 2, y: ly + 2, 'font-size': '13', fill: '#1A1D5E', 'font-family': 'Courier New', 'font-weight': '700' });
   lt.textContent = '3,351 Bcf';
