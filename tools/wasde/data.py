@@ -25,6 +25,7 @@ def table(t, title, start):
 
 def main(src, out):
     t = open(src).read()
+    if "not yet available" in t or "WASDE - " not in t: sys.exit("NOT RELEASED YET: re-fetch in 2 minutes")
     month = re.search(r"WASDE - \d+ - \d+\s+(\w+) (\d{4})", t).groups()
     corn, mons, yrs = table(t, "U.S. Feed Grain and Corn Supply and Use", "CORN")
     soy, mons2, _ = table(t, "U.S. Soybeans and Products Supply and Use", "SOYBEANS")
