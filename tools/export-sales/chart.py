@@ -30,6 +30,9 @@ def main(dp, out):
             f'<div class="bbar bbar-current" style="height:{h(S[c]["current"])}"><div class="bval">{S[c]["current"]:,}</div>')
         rep(f'<div class="bbar bbar-previous" style="height:{bh}"><div class="bval">{b}</div>',
             f'<div class="bbar bbar-previous" style="height:{h(P[c]["current"])}"><div class="bval">{P[c]["current"]:,}</div>')
+    # short bars: put the value label above the bar so it doesn't run into the category label
+    t = re.sub(r'(<div class="bbar bbar-(?:current|previous)" style="height:(\d+)px"><div class="bval")',
+               lambda m: m.group(1) + (' style="top:-24px"' if int(m.group(2)) < 34 else ""), t)
     # destination cards: replace the three drow blocks inside each dcard
     cards = re.findall(r'(<div class="dcard-head">.*?</h3></div>)((?:\s*<div class="drow">.*?</div></div></div>){3})', t, flags=re.S)
     if len(cards) != 3: sys.exit("TEMPLATE CHANGED: destination cards")
