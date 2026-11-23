@@ -11,6 +11,8 @@ DATA_JSON:
   "soybeans": {"states": {...},             "national": 25, "prev": 17, "avg": 33},
   "email_lines": ["Corn Mature: 83% (5yr avg 83%)", ...]   # numbers block, in order
 }
+"soybeans" may be omitted once USDA stops reporting soybean harvest (late season): the chart then
+shows the corn map alone (centered, single column) and social.txt drops the soybean line.
 State values are % harvested this week. "-" in the report means 0.
 Writes chart.html, chart.png, social.txt, numbers.txt. Exits non-zero on bad data.
 """
@@ -45,7 +47,8 @@ def main(data_path, out):
     d = json.load(open(data_path))
     rel = datetime.date.fromisoformat(d["release_date"]); wk = datetime.date.fromisoformat(d["week_ending"])
     if not (0 <= (rel - wk).days <= 3): fail("release date and week ending are not 0-3 days apart")
-    for crop in ("corn", "soybeans"):
+    crops = ("corn", "soybeans") if "soybeans" in d else ("corn",)
+    for crop in crops:
         c = d[crop]
         for st, v in c["states"].items():
             if st not in ORDER: fail(f"unknown state {st}")
@@ -61,7 +64,7 @@ def main(data_path, out):
     parts = re.split(r'(<svg viewBox="0 0 959 593"[^>]*>.*?</svg>)', t, flags=re.S)
     svg_idx = [i for i, p in enumerate(parts) if p.startswith("<svg")]
     if len(svg_idx) != 2: fail("template does not have exactly two maps")
-    for crop, i in zip(("corn", "soybeans"), svg_idx):
+    for crop, i in zip(crops, svg_idx):
         vals = d[crop]["states"]; n = [0]
         def repl(m):
             st = ORDER[n[0]]; n[0] += 1
@@ -74,7 +77,7 @@ def main(data_path, out):
     # harvest bars (corn block first, soybeans second)
     blocks = list(re.finditer(r'<div class="ge">.*?<div class="ge-sub">.*?</div>\s*</div>', t, re.S))
     if len(blocks) != 2: fail("expected two harvest bars")
-    for crop, m in reversed(list(zip(("corn", "soybeans"), blocks))):
+    for crop, m in reversed(list(zip(crops, blocks))):
         c = d[crop]; b = m.group(0)
         b = re.sub(r'<div class="ge-val">.*?</div>', f'<div class="ge-val">{c["national"]}% Harvested</div>', b)
         b = re.sub(r'width:\d+%;background:(#[0-9a-f]{6});border-radius', f'width:{c["national"]}%;background:\\1;border-radius', b, count=1)
@@ -82,6 +85,11 @@ def main(data_path, out):
         b = re.sub(r'<div class="ge-sub">.*?</div>', f'<div class="ge-sub">5yr avg: {c["avg"]}% · Prev week: {c["prev"]}%</div>', b)
         t = t[:m.start()] + b + t[m.end():]
 
+    if "soybeans" not in d:  # corn only: drop the soybean map box, one centered column
+        i = t.rfind('<div class="map-box">'); j = t.find('<div class="ft">', i)
+        if i < 0 or j < 0 or 'map-title soy' not in t[i:j]: fail("could not remove soybean map box")
+        t = t[:i] + "</div>\n\n  " + t[j:]  # the removed span also held the closing tag of .maps
+        t = t.replace("grid-template-columns:repeat(2,1fr);", "grid-template-columns:minmax(0,560px);justify-content:center;", 1)
     os.makedirs(out, exist_ok=True)
     hp = os.path.abspath(os.path.join(out, "chart.html")); open(hp, "w", encoding="utf-8").write(t)
     from playwright.sync_api import sync_playwright
@@ -92,11 +100,11 @@ def main(data_path, out):
         pg.set_viewport_size({"width": 1000, "height": int(h) + 40})
         pg.locator(".card").screenshot(path=os.path.join(out, "chart.png")); br.close()
 
-    c, s = d["corn"], d["soybeans"]
+    c, s = d["corn"], d.get("soybeans")
     def rel_word(x, a): return "ahead of" if x > a else ("behind" if x < a else "even with")
     social = ("Crop Progress:\n\n"
               f"🌾 Corn harvest {c['national']}%, {rel_word(c['national'], c['avg'])} {c['avg']}% avg\n"
-              f"🌱 Soybean harvest {s['national']}%, {rel_word(s['national'], s['avg'])} {s['avg']}% avg\n\n"
+              + (f"🌱 Soybean harvest {s['national']}%, {rel_word(s['national'], s['avg'])} {s['avg']}% avg\n" if s else "") + "\n"
               "read more at lakefrontfutures.com/briefing/\n\n#cropprogress #usda #nass\n")
     open(os.path.join(out, "social.txt"), "w", encoding="utf-8").write(social)
     open(os.path.join(out, "numbers.txt"), "w", encoding="utf-8").write("\n".join(d["email_lines"]) + "\n")
