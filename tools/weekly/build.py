@@ -3,7 +3,8 @@
 Usage: python3 build.py CALENDAR_JSON MONDAY(YYYY-MM-DD) OUT_DIR -> chart.png, social.txt, week.json
 CALENDAR_JSON from parse_calendar.py (Jack's trading calendar PDF).
 Adds the weekly reports Lakefront posts that the calendar leaves out: Ethanol Report with EIA Energy
-Stocks, and on Friday Weekly Cattle/Hog Slaughter 1:00 and Commitment of Traders 2:30.
+Stocks, on Friday Weekly Cattle/Hog Slaughter 1:00, and Commitment of Traders 2:30 on CFTC's release
+dates (cot_schedule.json: holiday weeks move it, e.g. Thanksgiving -> Monday; years not listed = every Friday).
 """
 import base64, datetime, html, json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +38,11 @@ def us_holiday(hs):
         if re.search(pat, s): return v
     return None
 
+def cot_day(d):
+    sched = json.load(open(os.path.join(HERE, "cot_schedule.json")))
+    yr = sched.get(str(d.year))
+    return str(d) in yr if yr else d.weekday() == 4
+
 def main(cp, monday, out):
     cal = json.load(open(cp)); mon = datetime.date.fromisoformat(monday)
     days = []
@@ -50,8 +56,10 @@ def main(cp, monday, out):
             t = next(r["time"] for r in reps if r["name"] == "EIA Energy Stocks"); reps.append({"name": "Ethanol Report", "time": t})
         if i == 4 and hol not in CLOSED:
             names = {r["name"] for r in reps}
-            for n, t in [("Weekly Cattle Slaughter", "1:00"), ("Weekly Hog Slaughter", "1:00"), ("Commitment of Traders", "2:30")]:
+            for n, t in [("Weekly Cattle Slaughter", "1:00"), ("Weekly Hog Slaughter", "1:00")]:
                 if n not in names: reps.append({"name": n, "time": t})
+        if cot_day(d) and hol not in CLOSED and not any(r["name"] == "Commitment of Traders" for r in reps):
+            reps.append({"name": "Commitment of Traders", "time": "2:30"})
         reps.sort(key=lambda r: (minutes(r["time"]), r["name"]))
         days.append({"date": str(d), "holiday": hol, "reports": reps})
     counts = [len(x["reports"]) for x in days]; heavy = counts.index(max(counts)) if max(counts) >= 5 else None
@@ -60,6 +68,7 @@ def main(cp, monday, out):
     for i, x in enumerate(days):
         d = datetime.date.fromisoformat(x["date"]); body = []
         if x["holiday"]: body.append(f'<div class="holiday-note">🇺🇸 {html.escape(x["holiday"])}</div>')
+        if x["holiday"] in CLOSED: body.append('<div class="closed-note">Markets closed</div>')
         for r in x["reports"]:
             cls = "report-item" if r["name"] in WEEKLY else "report-item monthly"
             body.append(f'<div class="{cls}"><span class="report-time">{r["time"] or ""}</span><span class="report-name">{html.escape(r["name"])}</span></div>')
@@ -79,6 +88,7 @@ def main(cp, monday, out):
     t = re.sub(r'<link href="https://fonts.googleapis.com[^>]*>', "", t).replace("<style>", "<style>" + fonts, 1)
     t = t.replace("</style>", ".report-name{word-break:normal!important;overflow-wrap:normal!important;hyphens:none!important;min-width:0}"
                   ".report-item{min-width:0}"
+                  ".closed-note{margin:0 12px 4px;padding:8px;font-size:14px;font-weight:700;color:#fff;background:var(--navy);border-radius:4px;text-align:center;letter-spacing:.5px;text-transform:uppercase}"
                   # Instagram rejects images wider than 1.91:1 (Jack, 11/18): force at least 16:9
                   ".container{min-height:619px;display:flex;flex-direction:column}.grid-wrapper{flex:1;display:flex;flex-direction:column}.week-grid{flex:1}</style>", 1)
     os.makedirs(out, exist_ok=True); hp = os.path.join(out, "chart.html"); open(hp, "w", encoding="utf-8").write(t)
